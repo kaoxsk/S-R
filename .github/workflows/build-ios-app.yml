@@ -1,0 +1,35 @@
+name: Build iOS App
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+jobs:
+  build-ios-app:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Ninja
+        run: brew install ninja
+      - name: Configure
+        run: |
+          SDKROOT=$(xcrun --sdk iphoneos --show-sdk-path)
+          cmake -S ios -B build -G Ninja \
+            -DCMAKE_SYSTEM_NAME=iOS \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_SYSROOT="$SDKROOT" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=15.0 \
+            -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build --target sr_ios
+      - name: Create IPA
+        run: |
+          APP_PATH=$(find build -name "*.app" -type d -print -quit)
+          test -n "$APP_PATH"
+          rm -rf Payload && mkdir Payload
+          cp -R "$APP_PATH" "Payload/S&R.app"
+          zip -qry 'S&R-beta.ipa' Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: S-R-beta-IPA
+          path: S&R-beta.ipa
+          if-no-files-found: error
